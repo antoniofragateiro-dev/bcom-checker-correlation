@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>B.com Score vs Room Checker — Numa Portfolio</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.0/dist/chart.umd.js" integrity="sha384-iU8HYtnGQ8Cy4zl7gbNMOhsDTTKX02BTXptVP/vqAWIaTfM7isw76iyZCsjL2eVi" crossorigin="anonymous"></script>
+<link href="https://cdn.jsdelivr.net/npm/gridjs@5.0.2/dist/theme/mermaid.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/gridjs@5.0.2/dist/gridjs.umd.js" integrity="sha384-/XXDzxe4FsGiAe50i/u9pY/Vy/uX654MHB1xoc1BJNnH1WXHhqHga9g3q5tF4gj7" crossorigin="anonymous"></script>
+<style>
+/* ── Reset & base ─────────────────────────────────────────── */
+:root {
+  color-scheme: light;
+  --green:  #1e9e58;
+  --green-l:#d4f0e2;
+  --red:    #d63b3b;
+  --red-l:  #fde8e8;
+  --blue:   #2563eb;
+  --blue-l: #dbeafe;
+  --navy:   #1e2a3a;
+  --gray1:  #f8f9fb;
+  --gray2:  #e8eaed;
+  --gray3:  #9aa0ac;
+  --text:   #1e2a3a;
+  --sub:    #6b7280;
+  --white:  #ffffff;
+  --radius: 10px;
+  --shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 8px rgba(0,0,0,.04);
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: var(--gray1);
+  color: var(--text);
+  padding: 24px 20px 40px;
+  max-width: 1100px;
+  margin: 0 auto;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* ── Page header ─────────────────────────────────────────── */
+.page-header { margin-bottom: 24px; }
+.page-header h1 { font-size: 19px; font-weight: 700; color: var(--navy); }
+.page-header p  { font-size: 12px; color: var(--sub); margin-top: 3px; }
+
+/* ── Stat cards ──────────────────────────────────────────── */
+.cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 24px; }
+@media (max-width: 600px) { .cards { grid-template-columns: 1fr 1fr; } }
+.card {
+  background: var(--white); border-radius: var(--radius);
+  padding: 18px 20px; box-shadow: var(--shadow);
+  border-top: 3px solid var(--gray2);
+}
+.card.c-yes   { border-color: var(--green); }
+.card.c-no    { border-color: var(--red); }
+.card.c-delta { border-color: var(--blue); }
+.card-label { font-size: 10.5px; font-weight: 600; text-transform: uppercase;
+              letter-spacing: .6px; color: var(--sub); margin-bottom: 8px; }
+.card-val   { font-size: 36px; font-weight: 700; line-height: 1; letter-spacing: -1px; }
+.card-val.c-yes   { color: var(--green); }
+.card-val.c-no    { color: var(--red); }
+.card-val.c-blue  { color: var(--blue); }
+.card-val.c-orange{ color: #d97706; }
+.card-sub   { font-size: 11.5px; color: var(--sub); margin-top: 5px; }
+
+/* ── Section card ────────────────────────────────────────── */
+.section {
+  background: var(--white); border-radius: var(--radius);
+  padding: 22px 24px; margin-bottom: 20px; box-shadow: var(--shadow);
+}
+.section-header { margin-bottom: 16px; }
+.section-header h2 { font-size: 14px; font-weight: 700; color: var(--navy); }
+.section-header p  { font-size: 12px; color: var(--sub); margin-top: 3px; }
+
+/* ── Callout ─────────────────────────────────────────────── */
+.callout {
+  background: var(--blue-l); border-left: 3px solid var(--blue);
+  padding: 11px 14px; border-radius: 6px; margin-bottom: 18px;
+  font-size: 12.5px; line-height: 1.6; color: #1e3a5f;
+}
+.callout strong { font-weight: 700; }
+
+/* ── Dot plot ────────────────────────────────────────────── */
+#dotplot { overflow-x: auto; }
+.dp-row { display: flex; align-items: center; margin-bottom: 6px; }
+.dp-label {
+  width: 148px; min-width: 148px; font-size: 12px; font-weight: 600;
+  text-align: right; padding-right: 14px; line-height: 1.3;
+}
+.dp-label small { display: block; font-size: 10.5px; font-weight: 400; color: var(--sub); margin-top: 1px; }
+.dp-track {
+  flex: 1; min-width: 500px; height: 46px; position: relative;
+  border-bottom: 1px solid var(--gray2); background: #fafbfc;
+  border-radius: 4px 4px 0 0;
+}
+.dp-track:last-child { border-bottom: none; }
+
+/* Reference bands */
+.dp-band {
+  position: absolute; top: 0; bottom: 0; opacity: .06;
+  pointer-events: none;
+}
+
+/* Grid lines */
+.dp-gridline {
+  position: absolute; top: 0; bottom: 0; width: 1px;
+  background: var(--gray2); pointer-events: none;
+}
+
+/* Dots */
+.dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  position: absolute; transform: translate(-50%, -50%);
+  cursor: pointer; transition: transform .12s, box-shadow .12s;
+  border: 1.5px solid rgba(255,255,255,.7);
+}
+.dot:hover { transform: translate(-50%, -50%) scale(1.9); z-index: 20;
+             box-shadow: 0 2px 8px rgba(0,0,0,.25); }
+
+/* Avg line */
+.dp-avg {
+  position: absolute; top: 4px; bottom: 4px; width: 2.5px;
+  border-radius: 2px; z-index: 5; pointer-events: none;
+}
+.dp-avg-label {
+  position: absolute; top: 3px; font-size: 9.5px; font-weight: 700;
+  white-space: nowrap; z-index: 6; pointer-events: none;
+}
+
+/* Axis row */
+.dp-axis {
+  margin-left: 148px; display: flex; border-top: 1.5px solid var(--gray3);
+  padding-top: 5px; position: relative; min-width: 500px;
+}
+.dp-tick {
+  position: absolute; font-size: 10px; color: var(--gray3);
+  transform: translateX(-50%); top: 0;
+}
+.dp-legend { display: flex; gap: 18px; margin-top: 12px; flex-wrap: wrap; }
+.dp-legend-item { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--sub); }
+.dp-legend-dot  { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+/* ── Tooltip ─────────────────────────────────────────────── */
+#tt {
+  position: fixed; background: var(--navy); color: #fff;
+  padding: 9px 13px; border-radius: 8px; font-size: 12px;
+  pointer-events: none; display: none; z-index: 9999;
+  max-width: 240px; line-height: 1.7; box-shadow: 0 4px 16px rgba(0,0,0,.25);
+}
+#tt b { font-weight: 700; }
+#tt small { color: #9eb3cc; font-size: 11px; }
+
+/* ── Country chart ───────────────────────────────────────── */
+#countryWrap { height: 380px; position: relative; }
+
+/* ── Table filters ───────────────────────────────────────── */
+.tbl-toolbar { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; align-items: center; }
+.pill {
+  padding: 5px 15px; border-radius: 999px; border: 1.5px solid var(--gray2);
+  background: var(--white); font-size: 12px; font-weight: 600;
+  cursor: pointer; transition: all .15s; color: var(--sub);
+  white-space: nowrap;
+}
+.pill:hover { border-color: var(--blue); color: var(--blue); }
+.pill.on-all   { background: var(--blue);  border-color: var(--blue);  color: #fff; }
+.pill.on-yes   { background: var(--green); border-color: var(--green); color: #fff; }
+.pill.on-no    { background: var(--red);   border-color: var(--red);   color: #fff; }
+.search {
+  padding: 5px 14px; border-radius: 999px; border: 1.5px solid var(--gray2);
+  font-size: 12px; outline: none; min-width: 200px; background: var(--white);
+  color: var(--text); transition: border-color .15s;
+}
+.search:focus { border-color: var(--blue); }
+
+/* Table cell helpers */
+.badge-yes { background: var(--green-l); color: #14532d; border-radius: 4px;
+             padding: 2px 8px; font-size: 11.5px; font-weight: 700; white-space: nowrap; }
+.badge-no  { background: var(--red-l);   color: #7f1d1d; border-radius: 4px;
+             padding: 2px 8px; font-size: 11.5px; font-weight: 700; white-space: nowrap; }
+.sheet-blank { font-size: 10px; background: #fff3cd; color: #7d5a0a;
+               border-radius: 3px; padding: 1px 5px; margin-left: 4px; vertical-align: middle; }
+.sbar-wrap  { display: flex; align-items: center; gap: 6px; }
+.sbar       { height: 7px; border-radius: 4px; flex-shrink: 0; }
+.sbar-val   { font-size: 12px; font-weight: 700; white-space: nowrap; }
+.no-score   { color: var(--gray3); font-size: 12px; }
+
+/* Grid.js overrides */
+.gridjs-wrapper { border-radius: 8px; overflow: hidden; }
+.gridjs-table   { font-size: 12px; }
+.gridjs-th      { background: var(--gray1) !important; font-size: 11.5px !important;
+                  font-weight: 600 !important; }
+.gridjs-td      { vertical-align: middle !important; }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>Booking.com Score — Room Checker Correlation</h1>
+  <p>Looker · reviews_all_time · all-time unweighted avg · 137 properties · Native Bank excluded (outlier: 5-unit, 6.25 score) · ops sheet June 2026</p>
+</div>
+
+<!-- Stat cards -->
+<div class="cards">
+  <div class="card c-yes">
+    <div class="card-label">✓ Has Room Checker</div>
+    <div class="card-val c-yes" id="v-yes">—</div>
+    <div class="card-sub" id="n-yes">loading…</div>
+  </div>
+  <div class="card c-no">
+    <div class="card-label">✗ No Room Checker</div>
+    <div class="card-val c-no" id="v-no">—</div>
+    <div class="card-sub" id="n-no">loading…</div>
+  </div>
+  <div class="card c-delta">
+    <div class="card-label">Delta (No − Yes)</div>
+    <div class="card-val" id="v-delta">—</div>
+    <div class="card-sub" id="s-delta">loading…</div>
+  </div>
+</div>
+
+<!-- Dot plot -->
+<div class="section">
+  <div class="section-header">
+    <h2>Score Distribution — Every Property</h2>
+    <p>Each dot = one property · hover for name & score · vertical bar = group average</p>
+  </div>
+  <div class="callout">
+    <strong>⚠ Geography confound:</strong> Spain (19 properties, all no-checker) averages 8.58 on B.com. Germany (mostly checker-equipped) averages lower. The headline delta doesn't mean checkers hurt scores — it reflects market mix. Use the country chart below for a like-for-like comparison.
+  </div>
+  <div id="dotplot"></div>
+  <div class="dp-legend" id="dp-legend"></div>
+</div>
+
+<!-- Country chart -->
+<div class="section">
+  <div class="section-header">
+    <h2>Average B.com Score by Country — All 15 Markets</h2>
+    <p>Green = has checker · Red = no checker · A single bar means all properties in that country share one status</p>
+  </div>
+  <div id="countryWrap"><canvas id="countryChart"></canvas></div>
+</div>
+
+<!-- Table -->
+<div class="section">
+  <div class="section-header">
+    <h2>Full Property List</h2>
+    <p>Click any column header to sort · Filter by status · Search by property, city or country</p>
+  </div>
+  <div class="tbl-toolbar">
+    <button class="pill on-all" data-f="all"  onclick="setFilter('all', this)">All properties</button>
+    <button class="pill"        data-f="Yes"  onclick="setFilter('Yes', this)">✓ Checker</button>
+    <button class="pill"        data-f="No"   onclick="setFilter('No',  this)">✗ No Checker</button>
+    <input  class="search" id="srch" placeholder="Search…" oninput="setFilter(curFilter, null)">
+  </div>
+  <div id="tbl"></div>
+  <p style="font-size:11px;color:var(--sub);margin-top:10px;">
+    * <em>Sheet blank</em> = no housekeeping data in the ops spreadsheet; classified as No Checker.
+  </p>
+</div>
+
+<div id="tt"></div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════
+   DATA  (checker blank → "No", flagged with sheetBlank:true)
+═══════════════════════════════════════════════════════════ */
+const DATA = [
+  // Austria
+  {id:"AT_SZ_001",name:"Salzburg Sonate",         city:"Salzburg",  country:"Austria",      checker:"Yes",bcom:7.96},
+  {id:"AT_SZ_002",name:"Salzburg Flute",           city:"Salzburg",  country:"Austria",      checker:"Yes",bcom:8.44},
+  {id:"AT_SZ_003",name:"Salzburg Nora",            city:"Salzburg",  country:"Austria",      checker:"Yes",bcom:8.48},
+  {id:"AT_SZ_004",name:"Salzburg Maximilian",      city:"Salzburg",  country:"Austria",      checker:"Yes",bcom:8.22},
+  {id:"AT_SZ_005",name:"Salzburg Ivy",             city:"Salzburg",  country:"Austria",      checker:"Yes",bcom:8.0},
+  {id:"AT_SZ_006",name:"Salzburg Mozart",          city:"Salzburg",  country:"Austria",      checker:"Yes",bcom:8.33},
+  {id:"AT_SZ_008",name:"Salzburg Vogelweider",     city:"Salzburg",  country:"Austria",      checker:"Yes",bcom:8.67},
+  {id:"AT_VI_001",name:"Vienna Strauss",           city:"Vienna",    country:"Austria",      checker:"Yes",bcom:8.6},
+  {id:"AT_VI_002",name:"Vienna Wood",              city:"Vienna",    country:"Austria",      checker:"Yes",bcom:8.53},
+  {id:"AT_VI_003",name:"Vienna Terra",             city:"Vienna",    country:"Austria",      checker:"Yes",bcom:9.2},
+  // Belgium
+  {id:"BE_AT_001",name:"Antwerp Opera",            city:"Antwerp",   country:"Belgium",      checker:"Yes",bcom:8.83},
+  {id:"BE_BR_002",name:"Brussels Lief",            city:"Brussels",  country:"Belgium",      checker:"Yes",bcom:8.28},
+  {id:"BE_BR_003",name:"Brussels Royal Galleries", city:"Brussels",  country:"Belgium",      checker:"Yes",bcom:8.41},
+  // Switzerland
+  {id:"CH_ZH_001",name:"Zurich Craft",             city:"Zurich",    country:"Switzerland",  checker:"No", bcom:8.65},
+  {id:"CH_ZH_002",name:"Zurich Turi",              city:"Zurich",    country:"Switzerland",  checker:"No", bcom:8.34},
+  // Czech Republic
+  {id:"CZ_PR_005",name:"Prague Libusa",            city:"Prague",    country:"Czech Rep.",    checker:"No", bcom:9.08},
+  {id:"CZ_PR_006",name:"Prague Root",              city:"Prague",    country:"Czech Rep.",    checker:"No", bcom:8.89},
+  {id:"CZ_PR_007",name:"Prague Poise",             city:"Prague",    country:"Czech Rep.",    checker:"No", bcom:8.89},
+  {id:"CZ_PR_008",name:"Prague Flow",              city:"Prague",    country:"Czech Rep.",    checker:"No", bcom:9.16},
+  {id:"CZ_PR_010",name:"Prague Republika",         city:"Prague",    country:"Czech Rep.",    checker:"No", bcom:8.74},
+  // Germany
+  {id:"DE_BE_001",name:"Berlin Belfort",           city:"Berlin",    country:"Germany",      checker:"Yes",bcom:8.13},
+  {id:"DE_BE_002",name:"Berlin Kater",             city:"Berlin",    country:"Germany",      checker:"Yes",bcom:8.15},
+  {id:"DE_BE_003",name:"Berlin Nook",              city:"Berlin",    country:"Germany",      checker:"Yes",bcom:8.51},
+  {id:"DE_BE_004",name:"Berlin Sketch",            city:"Berlin",    country:"Germany",      checker:"Yes",bcom:8.19},
+  {id:"DE_BE_005",name:"Berlin Drift",             city:"Berlin",    country:"Germany",      checker:"Yes",bcom:8.45},
+  {id:"DE_BE_006",name:"Berlin Novela",            city:"Berlin",    country:"Germany",      checker:"Yes",bcom:8.53},
+  {id:"DE_BE_007",name:"Berlin Arc",               city:"Berlin",    country:"Germany",      checker:"Yes",bcom:8.29},
+  {id:"DE_BE_008",name:"Berlin Boxer",             city:"Berlin",    country:"Germany",      checker:"Yes",bcom:8.15},
+  {id:"DE_BE_009",name:"Berlin Savi",              city:"Berlin",    country:"Germany",      checker:"Yes",bcom:8.49},
+  {id:"DE_BE_010",name:"Berlin Kudamm",            city:"Berlin",    country:"Germany",      checker:"Yes",bcom:8.46},
+  {id:"DE_BE_011",name:"Berlin Torstraße",         city:"Berlin",    country:"Germany",      checker:"Yes",bcom:8.3},
+  {id:"DE_BE_012",name:"Berlin Potsdamer Platz",   city:"Berlin",    country:"Germany",      checker:"Yes",bcom:7.94},
+  {id:"DE_BE_013",name:"Berlin Friedrichshain",    city:"Berlin",    country:"Germany",      checker:"Yes",bcom:8.62},
+  {id:"DE_BE_014",name:"Berlin Weinmeister",       city:"Berlin",    country:"Germany",      checker:"Yes",bcom:8.42},
+  {id:"DE_BO_001",name:"Bonn Bona",                city:"Bonn",      country:"Germany",      checker:"Yes",bcom:8.05},
+  {id:"DE_BR_001",name:"Bremen Saga",              city:"Bremen",    country:"Germany",      checker:"Yes",bcom:8.76},
+  {id:"DE_CO_001",name:"Cologne Ehrenfeld",        city:"Cologne",   country:"Germany",      checker:"Yes",bcom:7.64},
+  {id:"DE_DU_001",name:"Düsseldorf Artol",         city:"Düsseldorf",country:"Germany",      checker:"Yes",bcom:7.8},
+  {id:"DE_DU_003",name:"Düsseldorf Leo",           city:"Düsseldorf",country:"Germany",      checker:"Yes",bcom:8.86},
+  {id:"DE_FR_001",name:"Frankfurt Blau",           city:"Frankfurt", country:"Germany",      checker:"No", bcom:7.72},
+  {id:"DE_FR_002",name:"Frankfurt Oben",           city:"Frankfurt", country:"Germany",      checker:"No", bcom:7.58},
+  {id:"DE_FR_003",name:"Frankfurt Bloc",           city:"Frankfurt", country:"Germany",      checker:"Yes",bcom:7.93},
+  {id:"DE_HH_001",name:"Hamburg Base",             city:"Hamburg",   country:"Germany",      checker:"Yes",bcom:7.38},
+  {id:"DE_HH_002",name:"Hamburg Fore",             city:"Hamburg",   country:"Germany",      checker:"Yes",bcom:8.21},
+  {id:"DE_HH_003",name:"Hamburg St Georg",         city:"Hamburg",   country:"Germany",      checker:"Yes",bcom:8.47},
+  {id:"DE_MU_001",name:"Munich Munico",            city:"Munich",    country:"Germany",      checker:"No", bcom:8.19},
+  {id:"DE_MU_002",name:"Munich Stark",             city:"Munich",    country:"Germany",      checker:"Yes",bcom:8.57},
+  {id:"DE_MU_003",name:"Munich Viktoria",          city:"Munich",    country:"Germany",      checker:"Yes",bcom:8.34},
+  {id:"DE_MU_004",name:"Munich Blend",             city:"Munich",    country:"Germany",      checker:"Yes",bcom:8.37},
+  {id:"DE_MU_005",name:"Munich St Paul",           city:"Munich",    country:"Germany",      checker:"Yes",bcom:8.01},
+  {id:"DE_MU_006",name:"Munich Obersendling",      city:"Munich",    country:"Germany",      checker:"Yes",bcom:8.35},
+  {id:"DE_ST_001",name:"Stuttgart Rotebühlplatz",  city:"Stuttgart", country:"Germany",      checker:"Yes",bcom:8.44},
+  // Denmark
+  {id:"DK_CP_001",name:"Copenhagen Norrebro",      city:"Copenhagen",country:"Denmark",      checker:"Yes",bcom:8.76},
+  // Spain
+  {id:"ES_BC_001",name:"Barcelona Roca",           city:"Barcelona", country:"Spain",        checker:"No", bcom:8.07},
+  {id:"ES_BC_005",name:"Barcelona Seda",           city:"Barcelona", country:"Spain",        checker:"No", bcom:8.06},
+  {id:"ES_BC_006",name:"Barcelona Lustre",         city:"Barcelona", country:"Spain",        checker:"No", bcom:8.28},
+  {id:"ES_BC_025",name:"Barcelona Brio",           city:"Barcelona", country:"Spain",        checker:"No", bcom:8.55},
+  {id:"ES_BC_026",name:"Barcelona Colmena",        city:"Barcelona", country:"Spain",        checker:"No", bcom:8.88},
+  {id:"ES_GR_001",name:"Granada Vega",             city:"Granada",   country:"Spain",        checker:"No", bcom:9.02},
+  {id:"ES_MA_001",name:"Madrid Script",            city:"Madrid",    country:"Spain",        checker:"No", bcom:7.71},
+  {id:"ES_MA_003",name:"Madrid Goya",              city:"Madrid",    country:"Spain",        checker:"No", bcom:8.51},
+  {id:"ES_MA_004",name:"Madrid Luna",              city:"Madrid",    country:"Spain",        checker:"No", bcom:8.67},
+  {id:"ES_MA_005",name:"Madrid Sol",               city:"Madrid",    country:"Spain",        checker:"No", bcom:9.03},
+  {id:"ES_MA_006",name:"Madrid Atocha",            city:"Madrid",    country:"Spain",        checker:"No", bcom:8.31},
+  {id:"ES_MA_007",name:"Madrid Fuencarral",        city:"Madrid",    country:"Spain",        checker:"No", bcom:8.22},
+  {id:"ES_SE_003",name:"Seville Molina",           city:"Seville",   country:"Spain",        checker:"No", bcom:8.97},
+  {id:"ES_SE_004",name:"Seville Jondo",            city:"Seville",   country:"Spain",        checker:"No", bcom:9.03},
+  {id:"ES_SE_005",name:"Seville Solea",            city:"Seville",   country:"Spain",        checker:"No", bcom:8.81},
+  {id:"ES_SE_006",name:"Seville Prestigio",        city:"Seville",   country:"Spain",        checker:"No", bcom:9.29},
+  {id:"ES_SE_007",name:"Seville Alegre",           city:"Seville",   country:"Spain",        checker:"No", bcom:8.17},
+  {id:"ES_VA_001",name:"Valencia La Xerea",        city:"Valencia",  country:"Spain",        checker:"No", bcom:8.58},
+  {id:"ES_VA_002",name:"Valencia El Carmen",       city:"Valencia",  country:"Spain",        checker:"No", bcom:8.67},
+  // France
+  {id:"FR_PA_001",name:"YAYS Paris Zola",          city:"Paris",     country:"France",       checker:"No", bcom:8.21},
+  {id:"FR_PA_002",name:"YAYS Paris Issy",          city:"Paris",     country:"France",       checker:"Yes",bcom:8.54},
+  {id:"FR_PA_003",name:"Paris Champs-Élysées",     city:"Paris",     country:"France",       checker:"Yes",bcom:8.61},
+  {id:"FR_PA_005",name:"Paris Les Lilas",          city:"Paris",     country:"France",       checker:"No", bcom:7.83},
+  // UK
+  {id:"GB_BR_001",name:"Brighton Pavilion",        city:"Brighton",  country:"UK",           checker:"Yes",bcom:8.09},
+  {id:"GB_GW_001",name:"Native Glasgow",           city:"Glasgow",   country:"UK",           checker:"No", bcom:9.04, sheetBlank:true},
+  {id:"GB_LD_001",name:"London Bloomsbury",        city:"London",    country:"UK",           checker:"Yes",bcom:8.05},
+  {id:"GB_LD_002",name:"Native Mayfair",           city:"London",    country:"UK",           checker:"No", bcom:8.48, sheetBlank:true},
+  {id:"GB_LD_003",name:"Native King's Wardrobe",   city:"London",    country:"UK",           checker:"No", bcom:9.08, sheetBlank:true},
+  {id:"GB_LD_004",name:"Native Verso",             city:"London",    country:"UK",           checker:"No", bcom:8.5,  sheetBlank:true},
+  // Native Bank (GB_LD_005, 6.25) excluded — statistical outlier (5-unit property, anomalous score)
+  {id:"GB_LD_006",name:"Native Fulham Broadway",   city:"London",    country:"UK",           checker:"No", bcom:null, sheetBlank:true},
+  {id:"GB_LD_007",name:"Native Marylebone Lane",   city:"London",    country:"UK",           checker:"Yes",bcom:7.96},
+  {id:"GB_LD_008",name:"Native Cannon Street",     city:"London",    country:"UK",           checker:"Yes",bcom:8.0},
+  {id:"GB_LD_009",name:"Native Fenchurch",         city:"London",    country:"UK",           checker:"Yes",bcom:7.93},
+  {id:"GB_LD_010",name:"Native Tower Bridge",      city:"London",    country:"UK",           checker:"Yes",bcom:8.9},
+  {id:"GB_LD_012",name:"Native Bankside",          city:"London",    country:"UK",           checker:"No", bcom:8.75, sheetBlank:true},
+  {id:"GB_LD_013",name:"Native Waterloo",          city:"London",    country:"UK",           checker:"No", bcom:8.0,  sheetBlank:true},
+  {id:"GB_LD_014",name:"The Marlo",                city:"London",    country:"UK",           checker:"No", bcom:10.0, sheetBlank:true},
+  {id:"GB_LD_015",name:"Native Victoria",          city:"London",    country:"UK",           checker:"Yes",bcom:8.99},
+  {id:"GB_LD_016",name:"Native Hyde Park",         city:"London",    country:"UK",           checker:"No", bcom:8.28, sheetBlank:true},
+  {id:"GB_LD_019",name:"London Chelsea Green",     city:"London",    country:"UK",           checker:"Yes",bcom:7.67},
+  {id:"GB_MA_001",name:"Native Manchester",        city:"Manchester",country:"UK",           checker:"No", bcom:8.77, sheetBlank:true},
+  // Italy
+  {id:"IT_FL_001",name:"Florence Rodo",            city:"Florence",  country:"Italy",        checker:"Yes",bcom:8.31},
+  {id:"IT_FL_002",name:"Florence Vita",            city:"Florence",  country:"Italy",        checker:"Yes",bcom:8.95},
+  {id:"IT_FL_003",name:"Florence Fiore",           city:"Florence",  country:"Italy",        checker:"Yes",bcom:9.16},
+  {id:"IT_FL_004",name:"Florence Felice",          city:"Florence",  country:"Italy",        checker:"Yes",bcom:8.82},
+  {id:"IT_FL_005",name:"Florence Palazzo Moro",    city:"Florence",  country:"Italy",        checker:"Yes",bcom:8.58},
+  {id:"IT_FL_006",name:"Florence Palazzo Belfiore",city:"Florence",  country:"Italy",        checker:"Yes",bcom:8.61},
+  {id:"IT_FL_007",name:"Florence Palazzo Haggis",  city:"Florence",  country:"Italy",        checker:"Yes",bcom:8.6},
+  {id:"IT_FL_008",name:"Florence Palazzo San Niccolò",city:"Florence",country:"Italy",       checker:"Yes",bcom:8.65},
+  {id:"IT_FL_010",name:"Florence della Robbia",    city:"Florence",  country:"Italy",        checker:"Yes",bcom:8.91},
+  {id:"IT_MI_001",name:"Milan Loreto",             city:"Milan",     country:"Italy",        checker:"Yes",bcom:9.04},
+  {id:"IT_MI_002",name:"Milan Adore",              city:"Milan",     country:"Italy",        checker:"Yes",bcom:7.51},
+  {id:"IT_MI_003",name:"Milan Camperio",           city:"Milan",     country:"Italy",        checker:"Yes",bcom:8.27},
+  {id:"IT_MI_004",name:"Milan Sempione",           city:"Milan",     country:"Italy",        checker:"Yes",bcom:8.96},
+  {id:"IT_MI_008",name:"Milan Montenero",          city:"Milan",     country:"Italy",        checker:"Yes",bcom:8.84},
+  {id:"IT_RM_001",name:"Rome Vici",                city:"Rome",      country:"Italy",        checker:"Yes",bcom:8.29},
+  {id:"IT_RM_002",name:"Rome Tullo",               city:"Rome",      country:"Italy",        checker:"Yes",bcom:8.38},
+  {id:"IT_RM_003",name:"Rome Portico",             city:"Rome",      country:"Italy",        checker:"Yes",bcom:8.25},
+  {id:"IT_RM_004",name:"Rome Verso",               city:"Rome",      country:"Italy",        checker:"Yes",bcom:9.13},
+  {id:"IT_RM_005",name:"Rome Linea",               city:"Rome",      country:"Italy",        checker:"Yes",bcom:7.97},
+  {id:"IT_RM_006",name:"Rome Barberini",           city:"Rome",      country:"Italy",        checker:"Yes",bcom:8.17},
+  {id:"IT_RM_007",name:"Rome Trastevere",          city:"Rome",      country:"Italy",        checker:"Yes",bcom:9.17},
+  {id:"IT_VE_001",name:"Venice Forcola",           city:"Venice",    country:"Italy",        checker:"No", bcom:8.8},
+  {id:"IT_VE_002",name:"Venice Palazzo Orseolo",   city:"Venice",    country:"Italy",        checker:"No", bcom:8.45},
+  // Netherlands
+  {id:"NL_AM_001",name:"Amsterdam Oosterpark",     city:"Amsterdam", country:"Netherlands",  checker:"Yes",bcom:7.9},
+  {id:"NL_AM_002",name:"YAYS Amsterdam North",     city:"Amsterdam", country:"Netherlands",  checker:"Yes",bcom:8.14},
+  {id:"NL_AM_003",name:"YAYS Amsterdam East",      city:"Amsterdam", country:"Netherlands",  checker:"Yes",bcom:8.22},
+  {id:"NL_AM_004",name:"Amsterdam Helmers",        city:"Amsterdam", country:"Netherlands",  checker:"No", bcom:7.95},
+  {id:"NL_AM_005",name:"YAYS Amsterdam Prince Island",city:"Amsterdam",country:"Netherlands",checker:"Yes",bcom:8.29},
+  {id:"NL_AM_006",name:"Amsterdam Docklands",      city:"Amsterdam", country:"Netherlands",  checker:"Yes",bcom:8.8},
+  {id:"NL_AM_007",name:"Amsterdam Dockside Flats", city:"Amsterdam", country:"Netherlands",  checker:"Yes",bcom:7.33},
+  {id:"NL_AM_008",name:"Amsterdam Centre Harbour", city:"Amsterdam", country:"Netherlands",  checker:"Yes",bcom:7.66},
+  {id:"NL_AM_009",name:"YAYS Salthouse Canal",     city:"Amsterdam", country:"Netherlands",  checker:"Yes",bcom:8.3},
+  {id:"NL_AM_010",name:"YAYS Amsterdam Maritime",  city:"Amsterdam", country:"Netherlands",  checker:"Yes",bcom:8.24},
+  {id:"NL_AM_011",name:"YAYS The Crane",           city:"Amsterdam", country:"Netherlands",  checker:"No", bcom:9.02},
+  {id:"NL_AM_012",name:"Amsterdam Vondelpark",     city:"Amsterdam", country:"Netherlands",  checker:"No", bcom:9.1},
+  {id:"NL_RO_001",name:"Rotterdam Coolsingel",     city:"Rotterdam", country:"Netherlands",  checker:"No", bcom:8.64, sheetBlank:true},
+  {id:"NL_TH_001",name:"YAYS The Hague Willemspark",city:"The Hague",country:"Netherlands",  checker:"Yes",bcom:8.59},
+  {id:"NL_TH_002",name:"The Hague Scheveningen",   city:"The Hague", country:"Netherlands",  checker:"Yes",bcom:8.17},
+  {id:"NL_TH_003",name:"The Hague Spanish Court",  city:"The Hague", country:"Netherlands",  checker:"Yes",bcom:8.6},
+  // Norway
+  {id:"NO_OS_001",name:"Oslo Topp",                city:"Oslo",      country:"Norway",       checker:"Yes",bcom:8.81},
+  {id:"NO_OS_002",name:"Oslo Hallen",              city:"Oslo",      country:"Norway",       checker:"Yes",bcom:8.69},
+  // Portugal
+  {id:"PT_LI_001",name:"Lisbon Rato",              city:"Lisbon",    country:"Portugal",     checker:"Yes",bcom:8.94},
+  {id:"PT_LI_002",name:"Lisbon Anjos",             city:"Lisbon",    country:"Portugal",     checker:"Yes",bcom:9.05},
+];
+
+/* ── helpers ───────────────────────────────────────────── */
+const avg = arr => arr.reduce((s,v)=>s+v,0)/arr.length;
+const GREEN = '#1e9e58', RED = '#d63b3b';
+
+const yesVals = DATA.filter(d=>d.checker==='Yes'&&d.bcom!=null).map(d=>d.bcom);
+const noVals  = DATA.filter(d=>d.checker==='No' &&d.bcom!=null).map(d=>d.bcom);
+const YES_AVG = avg(yesVals), NO_AVG = avg(noVals);
+const DELTA   = NO_AVG - YES_AVG;
+
+/* ── stat cards ────────────────────────────────────────── */
+document.getElementById('v-yes').textContent   = YES_AVG.toFixed(2);
+document.getElementById('n-yes').textContent   = `avg of ${yesVals.length} properties`;
+document.getElementById('v-no').textContent    = NO_AVG.toFixed(2);
+document.getElementById('n-no').textContent    = `avg of ${noVals.length} properties`;
+
+const dv = document.getElementById('v-delta');
+dv.textContent = (DELTA>0?'+':'')+DELTA.toFixed(2);
+dv.className   = 'card-val ' + (DELTA > 0 ? 'c-orange' : 'c-green');
+document.getElementById('s-delta').textContent =
+  DELTA > 0 ? 'no-checker scores higher (see geography note)'
+            : 'checker scores higher ✓';
+
+/* ── DOT PLOT ──────────────────────────────────────────── */
+(function buildDotPlot() {
+  const SMIN=6, SMAX=10.3, TRACK_H=52, DOT=10, BIN=0.13;
+  const pct = s => ((s-SMIN)/(SMAX-SMIN)*100).toFixed(3)+'%';
+  const wrap = document.getElementById('dotplot');
+
+  function beeswarm(items) {
+    // Bin items by rounded score, then assign vertical offsets
+    const buckets = {};
+    items.filter(d=>d.bcom!=null).forEach(d => {
+      const k = (Math.round(d.bcom/BIN)*BIN).toFixed(2);
+      if (!buckets[k]) buckets[k]=[];
+      buckets[k].push(d);
+    });
+    const out=[];
+    Object.values(buckets).forEach(group=>{
+      const n=group.length;
+      group.forEach((d,i)=>{
+        const step = Math.min(DOT*1.05, (TRACK_H-DOT*1.4)/(Math.max(n-1,1)));
+        const offset = n===1 ? 0 : (i-(n-1)/2)*step;
+        out.push({...d, dy: offset});
+      });
+    });
+    return out;
+  }
+
+  const groups = [
+    {key:'Yes', label:'✓ Has Checker', n:yesVals.length, avg_v:YES_AVG, color:GREEN},
+    {key:'No',  label:'✗ No Checker',  n:noVals.length,  avg_v:NO_AVG,  color:RED},
+  ];
+
+  groups.forEach(grp => {
+    const items = DATA.filter(d=>d.checker===grp.key);
+    const placed = beeswarm(items);
+
+    const row = document.createElement('div');
+    row.className = 'dp-row';
+
+    const lbl = document.createElement('div');
+    lbl.className = 'dp-label';
+    lbl.style.color = grp.color;
+    lbl.innerHTML = `${grp.label}<small>avg ${grp.avg_v.toFixed(2)} · n=${grp.n}</small>`;
+    row.appendChild(lbl);
+
+    const track = document.createElement('div');
+    track.className = 'dp-track';
+    track.style.height = TRACK_H + 'px';
+
+    // Grid lines at each 0.5
+    for (let s=6; s<=10; s+=0.5) {
+      const gl = document.createElement('div');
+      gl.className = 'dp-gridline';
+      gl.style.left = pct(s);
+      track.appendChild(gl);
+    }
+
+    // Avg line
+    const al = document.createElement('div');
+    al.className = 'dp-avg';
+    al.style.cssText = `left:${pct(grp.avg_v)};background:${grp.color};top:3px;bottom:3px;`;
+    track.appendChild(al);
+    const alb = document.createElement('div');
+    alb.className = 'dp-avg-label';
+    alb.style.cssText = `left:calc(${pct(grp.avg_v)} + 4px);top:2px;color:${grp.color};`;
+    alb.textContent = grp.avg_v.toFixed(2);
+    track.appendChild(alb);
+
+    // Dots
+    placed.forEach(p => {
+      const dot = document.createElement('div');
+      dot.className = 'dot';
+      dot.style.background = grp.color;
+      dot.style.left = pct(p.bcom);
+      dot.style.top  = `calc(50% + ${p.dy}px)`;
+      if (p.sheetBlank) {
+        dot.style.opacity = '0.55';
+        dot.style.border  = '1.5px dashed rgba(255,255,255,.8)';
+      }
+
+      dot.addEventListener('mouseenter', e => showTT(e, p, grp.color));
+      dot.addEventListener('mousemove',  e => moveTT(e));
+      dot.addEventListener('mouseleave', hideTT);
+      track.appendChild(dot);
+    });
+
+    row.appendChild(track);
+    wrap.appendChild(row);
+  });
+
+  // Axis
+  const axis = document.createElement('div');
+  axis.className = 'dp-axis';
+  axis.style.height = '18px';
+  for (let s=6; s<=10; s+=0.5) {
+    const t = document.createElement('span');
+    t.className = 'dp-tick';
+    t.style.left = pct(s);
+    t.textContent = Number.isInteger(s) ? s.toFixed(0) : s.toFixed(1);
+    axis.appendChild(t);
+  }
+  wrap.appendChild(axis);
+
+  // Legend
+  const leg = document.getElementById('dp-legend');
+  [
+    {color:GREEN, label:'Has checker'},
+    {color:RED,   label:'No checker'},
+    {color:'rgba(30,158,88,0.4)', label:'No checker (ops sheet blank)', dashed:true},
+  ].forEach(({color,label,dashed}) => {
+    const item = document.createElement('div');
+    item.className = 'dp-legend-item';
+    const dot = document.createElement('div');
+    dot.className = 'dp-legend-dot';
+    dot.style.background = color;
+    if (dashed) { dot.style.opacity='.55'; dot.style.outline='1.5px dashed #888'; dot.style.background=RED; }
+    item.appendChild(dot);
+    item.appendChild(document.createTextNode(label));
+    leg.appendChild(item);
+  });
+})();
+
+/* ── TOOLTIP ──────────────────────────────────────────── */
+const tt = document.getElementById('tt');
+function showTT(e, p, color) {
+  const note = p.sheetBlank ? '<br><small>* ops sheet blank</small>' : '';
+  tt.innerHTML = `<b>${p.name}</b><br>${p.city}, ${p.country}<br>B.com: <b style="color:${color}">${p.bcom!=null?p.bcom.toFixed(2):'—'}</b><br><small>${p.id}</small>${note}`;
+  tt.style.display = 'block';
+  moveTT(e);
+}
+function moveTT(e) {
+  const W=window.innerWidth, H=window.innerHeight;
+  const tw=260, th=90;
+  let x=e.clientX+14, y=e.clientY-10;
+  if (x+tw>W) x=e.clientX-tw-8;
+  if (y+th>H) y=e.clientY-th-8;
+  tt.style.left=x+'px'; tt.style.top=y+'px';
+}
+function hideTT() { tt.style.display='none'; }
+
+/* ── COUNTRY CHART ────────────────────────────────────── */
+(function buildCountryChart() {
+  const by={};
+  DATA.filter(d=>d.bcom!=null).forEach(d=>{
+    if(!by[d.country]) by[d.country]={Yes:[],No:[]};
+    by[d.country][d.checker==='Yes'?'Yes':'No'].push(d.bcom);
+  });
+
+  // Sort by overall avg descending
+  const countries = Object.keys(by).sort((a,b)=>{
+    const ga=[...by[a].Yes,...by[a].No], gb=[...by[b].Yes,...by[b].No];
+    return avg(gb)-avg(ga);
+  });
+
+  const yesData = countries.map(c=>by[c].Yes.length ? +avg(by[c].Yes).toFixed(2) : null);
+  const noData  = countries.map(c=>by[c].No.length  ? +avg(by[c].No).toFixed(2)  : null);
+  const yesN    = countries.map(c=>by[c].Yes.length);
+  const noN     = countries.map(c=>by[c].No.length);
+
+  new Chart(document.getElementById('countryChart').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: countries,
+      datasets: [
+        { label:'✓ Has Checker', data:yesData, backgroundColor:'rgba(30,158,88,.78)',
+          borderColor:GREEN, borderWidth:1.5, borderRadius:4 },
+        { label:'✗ No Checker',  data:noData,  backgroundColor:'rgba(214,59,59,.78)',
+          borderColor:RED,   borderWidth:1.5, borderRadius:4 },
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins: {
+        legend: { position:'top', labels:{ font:{size:12}, padding:16 } },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              if (ctx.parsed.y==null) return null;
+              const n = ctx.datasetIndex===0 ? yesN[ctx.dataIndex] : noN[ctx.dataIndex];
+              return ` ${ctx.parsed.y.toFixed(2)}  (n=${n})`;
+            }
+          }
+        }
+      },
+      scales: {
+        y: {
+          min:6.8, max:9.8,
+          title:{ display:true, text:'Avg B.com Score', font:{size:11} },
+          ticks:{ font:{size:11}, callback:v=>v.toFixed(1) },
+          grid: { color:'rgba(0,0,0,.06)' }
+        },
+        x: { ticks:{ font:{size:11} }, grid:{ display:false } }
+      }
+    }
+  });
+})();
+
+/* ── TABLE ────────────────────────────────────────────── */
+let curFilter='all', grid=null;
+// Pre-build note lookup
+const noteSet = new Set(DATA.filter(d=>d.sheetBlank).map(d=>d.id));
+
+function setFilter(f, btn) {
+  if (btn) {
+    document.querySelectorAll('.pill').forEach(b=>b.className='pill');
+    btn.classList.add(f==='all'?'on-all':f==='Yes'?'on-yes':'on-no');
+    curFilter=f;
+  }
+  const q = document.getElementById('srch').value.toLowerCase().trim();
+  const rows = DATA
+    .filter(d=>(f==='all'||d.checker===f) &&
+      (!q||[d.name,d.city,d.country,d.id].some(v=>v.toLowerCase().includes(q))))
+    .sort((a,b)=>(b.bcom||0)-(a.bcom||0));
+
+  if (grid) { grid.destroy(); document.getElementById('tbl').innerHTML=''; }
+
+  grid = new gridjs.Grid({
+    columns:[
+      { name:'ID', width:'112px' },
+      { name:'Property', width:'230px',
+        formatter:(cell,row)=>{
+          const isBlank = noteSet.has(row.cells[0].data);
+          return isBlank
+            ? gridjs.html(`${cell} <span class="sheet-blank">*</span>`)
+            : cell;
+        }
+      },
+      { name:'City',    width:'100px' },
+      { name:'Country', width:'110px' },
+      { name:'Checker', width:'120px',
+        formatter:cell=>gridjs.html(
+          cell==='Yes'
+            ? `<span class="badge-yes">✓ Checker</span>`
+            : `<span class="badge-no">✗ No Checker</span>`
+        )
+      },
+      { name:'B.com Score', width:'160px',
+        formatter:cell=>{
+          if(cell==null||cell==='') return gridjs.html(`<span class="no-score">no data</span>`);
+          const n=+cell;
+          const w=Math.round(Math.max(0,Math.min(100,((n-6)/4)*100)));
+          const col=n>=9?'#1e9e58':n>=8.5?'#16a34a':n>=8.0?'#d97706':n>=7.5?'#ea580c':'#d63b3b';
+          return gridjs.html(`<div class="sbar-wrap"><div class="sbar" style="width:${w}%;background:${col};min-width:2px"></div><span class="sbar-val">${n.toFixed(2)}</span></div>`);
+        },
+        sort:{ compare:(a,b)=>((+b||0)-(+a||0)) }
+      },
+    ],
+    data: rows.map(d=>[
+      d.id, d.name, d.city, d.country, d.checker,
+      d.bcom!=null ? d.bcom.toFixed(2) : null
+    ]),
+    sort:true,
+    pagination:{ limit:25, summary:true },
+    style:{
+      table:{'font-size':'12px'},
+      th:{'background-color':'#f8f9fb','font-size':'11.5px','padding':'10px 12px'},
+      td:{'padding':'8px 12px'}
+    }
+  }).render(document.getElementById('tbl'));
+}
+
+setFilter('all', document.querySelector('[data-f="all"]'));
+</script>
+</body>
+</html>
