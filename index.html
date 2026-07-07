@@ -355,6 +355,8 @@ function switchTab(id, btn) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-' + id).classList.add('active');
   btn.classList.add('active');
+  curTab = id;
+  setFilter(curFilter, null);
 }
 
 const BCOM90 = {
@@ -1053,8 +1055,7 @@ function hideTT() { tt.style.display='none'; }
 })();
 
 /* ── TABLE ────────────────────────────────────────────── */
-let curFilter='all', grid=null;
-// Pre-build note lookup
+let curFilter='all', curTab='overall', grid=null;
 const noteSet = new Set(DATA.filter(d=>d.sheetBlank).map(d=>d.id));
 
 function setFilter(f, btn) {
@@ -1063,11 +1064,15 @@ function setFilter(f, btn) {
     btn.classList.add(f==='all'?'on-all':f==='Yes'?'on-yes':'on-no');
     curFilter=f;
   }
+  const useClean = curTab === 'cleanliness';
+  const scoreLabel = useClean ? 'Cleanliness Score (90D)' : 'B.com Score (90D)';
+  const scoreLookup = useClean ? CLEAN90 : BCOM90;
+
   const q = document.getElementById('srch').value.toLowerCase().trim();
   const rows = DATA
     .filter(d=>(f==='all'||d.checker===f) &&
       (!q||[d.name,d.city,d.country,d.id].some(v=>v.toLowerCase().includes(q))))
-    .sort((a,b)=>((BCOM90[b.id]||0)-(BCOM90[a.id]||0)));
+    .sort((a,b)=>((scoreLookup[b.id]||0)-(scoreLookup[a.id]||0)));
 
   if (grid) { grid.destroy(); document.getElementById('tbl').innerHTML=''; }
 
@@ -1091,7 +1096,7 @@ function setFilter(f, btn) {
             : `<span class="badge-no">✗ No Checker</span>`
         )
       },
-      { name:'B.com Score', width:'160px',
+      { name:scoreLabel, width:'180px',
         formatter:cell=>{
           if(cell==null||cell==='') return gridjs.html(`<span class="no-score">no data</span>`);
           const n=+cell;
@@ -1104,7 +1109,7 @@ function setFilter(f, btn) {
     ],
     data: rows.map(d=>[
       d.id, d.name, d.city, d.country, d.checker,
-      BCOM90[d.id]!=null ? BCOM90[d.id].toFixed(2) : null
+      scoreLookup[d.id]!=null ? scoreLookup[d.id].toFixed(2) : null
     ]),
     sort:true,
     pagination:{ limit:25, summary:true },
