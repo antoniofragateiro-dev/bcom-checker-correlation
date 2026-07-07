@@ -151,6 +151,23 @@ body {
 #tt b { font-weight: 700; }
 #tt small { color: #9eb3cc; font-size: 11px; }
 
+/* ── Tab nav ─────────────────────────────────────────────── */
+.tab-nav {
+  display: flex; gap: 0; margin-bottom: 20px;
+  border-bottom: 2px solid var(--gray2);
+}
+.tab-btn {
+  padding: 10px 22px; font-size: 13px; font-weight: 600;
+  background: none; border: none; border-bottom: 3px solid transparent;
+  margin-bottom: -2px; cursor: pointer; color: var(--sub);
+  transition: color .15s, border-color .15s;
+  white-space: nowrap;
+}
+.tab-btn:hover { color: var(--navy); }
+.tab-btn.active { color: var(--blue); border-bottom-color: var(--blue); }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
 /* ── Country chart ───────────────────────────────────────── */
 #countryWrap { height: 380px; position: relative; }
 
@@ -197,84 +214,89 @@ body {
 
 <div class="page-header">
   <h1>Booking.com Score — Room Checker Correlation</h1>
-  <p>Looker · reviews_all_time · all-time unweighted avg · 137 properties · Native Bank excluded (outlier: 5-unit, 6.25 score) · ops sheet June 2026</p>
+  <p>Looker · all-time unweighted avg · 137 properties · Native Bank excluded (outlier) · ops sheet June 2026</p>
 </div>
 
-<!-- Stat cards -->
-<div class="cards">
-  <div class="card c-yes">
-    <div class="card-label">✓ Has Room Checker</div>
-    <div class="card-val c-yes" id="v-yes">—</div>
-    <div class="card-sub" id="n-yes">loading…</div>
+<!-- Tab nav -->
+<div class="tab-nav">
+  <button class="tab-btn active" data-tab="overall"     onclick="switchTab('overall',this)">B.com Average Score</button>
+  <button class="tab-btn"        data-tab="cleanliness" onclick="switchTab('cleanliness',this)">Cleanliness Score</button>
+</div>
+
+<!-- ── Tab: B.com Average Score ── -->
+<div class="tab-panel active" id="tab-overall">
+  <div class="cards">
+    <div class="card c-yes">
+      <div class="card-label">✓ Has Room Checker</div>
+      <div class="card-val c-yes" id="v-yes">—</div>
+      <div class="card-sub" id="n-yes">loading…</div>
+    </div>
+    <div class="card c-no">
+      <div class="card-label">✗ No Room Checker</div>
+      <div class="card-val c-no" id="v-no">—</div>
+      <div class="card-sub" id="n-no">loading…</div>
+    </div>
+    <div class="card c-delta">
+      <div class="card-label">Delta (No − Yes) · r = −0.20 · r² = 0.042</div>
+      <div class="card-val" id="v-delta">—</div>
+      <div class="card-sub" id="s-delta">loading…</div>
+    </div>
   </div>
-  <div class="card c-no">
-    <div class="card-label">✗ No Room Checker</div>
-    <div class="card-val c-no" id="v-no">—</div>
-    <div class="card-sub" id="n-no">loading…</div>
+  <div class="section">
+    <div class="section-header">
+      <h2>Score Distribution — Every Property</h2>
+      <p>Each dot = one property · hover for name & score · vertical bar = group average</p>
+    </div>
+    <div class="callout">
+      <strong>⚠ Geography confound:</strong> Spain (19 properties, all no-checker) averages 8.58 on B.com. Germany (mostly checker-equipped) averages lower. The headline delta doesn't mean checkers hurt scores — it reflects market mix. Use the country chart below for a like-for-like comparison.
+    </div>
+    <div id="dotplot"></div>
+    <div class="dp-legend" id="dp-legend"></div>
   </div>
-  <div class="card c-delta">
-    <div class="card-label">Delta (No − Yes)</div>
-    <div class="card-val" id="v-delta">—</div>
-    <div class="card-sub" id="s-delta">loading…</div>
+  <div class="section">
+    <div class="section-header">
+      <h2>Average B.com Score by Country — All 15 Markets</h2>
+      <p>Green = has checker · Red = no checker · A single bar means all properties in that country share one status</p>
+    </div>
+    <div id="countryWrap"><canvas id="countryChart"></canvas></div>
   </div>
 </div>
 
-<!-- Dot plot -->
-<div class="section">
-  <div class="section-header">
-    <h2>Score Distribution — Every Property</h2>
-    <p>Each dot = one property · hover for name & score · vertical bar = group average</p>
-  </div>
-  <div class="callout">
-    <strong>⚠ Geography confound:</strong> Spain (19 properties, all no-checker) averages 8.58 on B.com. Germany (mostly checker-equipped) averages lower. The headline delta doesn't mean checkers hurt scores — it reflects market mix. Use the country chart below for a like-for-like comparison.
-  </div>
-  <div id="dotplot"></div>
-  <div class="dp-legend" id="dp-legend"></div>
-</div>
-
-<!-- Country chart -->
-<div class="section">
-  <div class="section-header">
-    <h2>Average B.com Score by Country — All 15 Markets</h2>
-    <p>Green = has checker · Red = no checker · A single bar means all properties in that country share one status</p>
-  </div>
-  <div id="countryWrap"><canvas id="countryChart"></canvas></div>
-</div>
-
-<!-- Cleanliness section -->
-<div class="section">
-  <div class="section-header">
-    <h2>Cleanliness Score — Room Checker Correlation</h2>
-    <p>B.com cleanliness sub-score (Looker: booking_reviews_processed.cleanliness_rating_avg) · 136 properties with data</p>
-  </div>
-  <div class="callout">
-    <strong>Same pattern as overall score:</strong> No-checker properties score +0.21 higher on cleanliness (r = −0.23, r² = 0.054). Geography confound is the same driver — Spain, Czech Republic, and UK Native properties (all no-checker) skew the No group upward. Checker status explains only <strong>5.4%</strong> of cleanliness score variance.
-  </div>
-  <!-- Cleanliness stat cards -->
-  <div class="cards" style="margin-bottom:20px;">
+<!-- ── Tab: Cleanliness Score ── -->
+<div class="tab-panel" id="tab-cleanliness">
+  <div class="cards">
     <div class="card c-yes">
       <div class="card-label">✓ Has Checker — Cleanliness</div>
-      <div class="card-val c-yes" id="cv-yes">8.60</div>
+      <div class="card-val c-yes">8.60</div>
       <div class="card-sub">avg of 90 properties</div>
     </div>
     <div class="card c-no">
       <div class="card-label">✗ No Checker — Cleanliness</div>
-      <div class="card-val c-no" id="cv-no">8.81</div>
+      <div class="card-val c-no">8.81</div>
       <div class="card-sub">avg of 46 properties</div>
     </div>
     <div class="card c-delta">
-      <div class="card-label">Cleanliness Delta (No − Yes)</div>
+      <div class="card-label">Delta (No − Yes) · r = −0.23 · r² = 0.054</div>
       <div class="card-val c-orange">+0.21</div>
-      <div class="card-sub">r = −0.23 · r² = 0.054 · explains 5.4% of variance</div>
+      <div class="card-sub">explains 5.4% of cleanliness score variance</div>
     </div>
   </div>
-  <!-- Cleanliness dot plot -->
-  <div id="cleandotplot"></div>
-  <div class="dp-legend" id="clean-dp-legend"></div>
-  <!-- Cleanliness country chart -->
-  <div style="margin-top:24px;">
-    <h3 style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:4px;">Cleanliness Score by Country</h3>
-    <p style="font-size:12px;color:var(--sub);margin-bottom:12px;">Green = has checker · Red = no checker</p>
+  <div class="section">
+    <div class="section-header">
+      <h2>Cleanliness Distribution — Every Property</h2>
+      <p>Each dot = one property · hover for name & score · 136 properties with B.com cleanliness data</p>
+    </div>
+    <div class="callout">
+      <strong>Same pattern as overall score:</strong> No-checker properties score +0.21 higher on cleanliness. Geography confound is the same driver — Spain, Czech Republic, and UK Native properties (all no-checker) skew the No group upward. Checker status explains only <strong>5.4%</strong> of cleanliness score variance.
+    </div>
+    <div id="cleandotplot"></div>
+    <div class="dp-legend" id="clean-dp-legend"></div>
+  </div>
+  <div class="section">
+    <div class="section-header">
+      <h2>Cleanliness Score by Country — All 15 Markets</h2>
+      <p>Green = has checker · Red = no checker</p>
+    </div>
     <div style="height:380px;position:relative;"><canvas id="cleanCountryChart"></canvas></div>
   </div>
 </div>
@@ -300,6 +322,14 @@ body {
 <div id="tt"></div>
 
 <script>
+/* ── Tab switching ─────────────────────────────────────── */
+function switchTab(id, btn) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  btn.classList.add('active');
+}
+
 /* ── Cleanliness lookup (B.com cleanliness sub-score per property) ──────── */
 // Source: Looker combined_reviews_processed → booking_reviews_processed.cleanliness_rating_avg
 // Stats: YES avg=8.5951, NO avg=8.8052, delta=−0.21, r=−0.23, r²=0.054
