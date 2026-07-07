@@ -241,6 +241,44 @@ body {
   <div id="countryWrap"><canvas id="countryChart"></canvas></div>
 </div>
 
+<!-- Cleanliness section -->
+<div class="section">
+  <div class="section-header">
+    <h2>Cleanliness Score — Room Checker Correlation</h2>
+    <p>B.com cleanliness sub-score (Looker: booking_reviews_processed.cleanliness_rating_avg) · 136 properties with data</p>
+  </div>
+  <div class="callout">
+    <strong>Same pattern as overall score:</strong> No-checker properties score +0.21 higher on cleanliness (r = −0.23, r² = 0.054). Geography confound is the same driver — Spain, Czech Republic, and UK Native properties (all no-checker) skew the No group upward. Checker status explains only <strong>5.4%</strong> of cleanliness score variance.
+  </div>
+  <!-- Cleanliness stat cards -->
+  <div class="cards" style="margin-bottom:20px;">
+    <div class="card c-yes">
+      <div class="card-label">✓ Has Checker — Cleanliness</div>
+      <div class="card-val c-yes" id="cv-yes">8.60</div>
+      <div class="card-sub">avg of 90 properties</div>
+    </div>
+    <div class="card c-no">
+      <div class="card-label">✗ No Checker — Cleanliness</div>
+      <div class="card-val c-no" id="cv-no">8.81</div>
+      <div class="card-sub">avg of 46 properties</div>
+    </div>
+    <div class="card c-delta">
+      <div class="card-label">Cleanliness Delta (No − Yes)</div>
+      <div class="card-val c-orange">+0.21</div>
+      <div class="card-sub">r = −0.23 · r² = 0.054 · explains 5.4% of variance</div>
+    </div>
+  </div>
+  <!-- Cleanliness dot plot -->
+  <div id="cleandotplot"></div>
+  <div class="dp-legend" id="clean-dp-legend"></div>
+  <!-- Cleanliness country chart -->
+  <div style="margin-top:24px;">
+    <h3 style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:4px;">Cleanliness Score by Country</h3>
+    <p style="font-size:12px;color:var(--sub);margin-bottom:12px;">Green = has checker · Red = no checker</p>
+    <div style="height:380px;position:relative;"><canvas id="cleanCountryChart"></canvas></div>
+  </div>
+</div>
+
 <!-- Table -->
 <div class="section">
   <div class="section-header">
@@ -262,6 +300,151 @@ body {
 <div id="tt"></div>
 
 <script>
+/* ── Cleanliness lookup (B.com cleanliness sub-score per property) ──────── */
+// Source: Looker combined_reviews_processed → booking_reviews_processed.cleanliness_rating_avg
+// Stats: YES avg=8.5951, NO avg=8.8052, delta=−0.21, r=−0.23, r²=0.054
+const CLEAN = {
+  "AT_SZ_001":8.3539,
+  "AT_SZ_002":8.5583,
+  "AT_SZ_003":8.6582,
+  "AT_SZ_004":8.3326,
+  "AT_SZ_005":8.4724,
+  "AT_SZ_006":8.6249,
+  "AT_SZ_008":8.9916,
+  "AT_VI_001":8.7274,
+  "AT_VI_002":8.721,
+  "AT_VI_003":9.2068,
+  "BE_AT_001":8.8027,
+  "BE_BR_002":8.3582,
+  "BE_BR_003":8.1382,
+  "CH_ZH_001":8.8499,
+  "CH_ZH_002":8.6814,
+  "CZ_PR_005":9.252,
+  "CZ_PR_006":9.0502,
+  "CZ_PR_007":9.0576,
+  "CZ_PR_008":9.2537,
+  "CZ_PR_010":8.8608,
+  "DE_BE_001":8.4817,
+  "DE_BE_002":8.3296,
+  "DE_BE_003":8.8859,
+  "DE_BE_004":8.6101,
+  "DE_BE_005":8.7007,
+  "DE_BE_006":8.7709,
+  "DE_BE_007":8.6122,
+  "DE_BE_008":8.4056,
+  "DE_BE_009":8.927,
+  "DE_BE_010":8.6235,
+  "DE_BE_011":8.6797,
+  "DE_BE_012":8.2439,
+  "DE_BE_013":8.802,
+  "DE_BE_014":8.7229,
+  "DE_BO_001":7.9953,
+  "DE_BR_001":9.1054,
+  "DE_CO_001":8.0191,
+  "DE_DU_001":8.078,
+  "DE_DU_003":8.9829,
+  "DE_FR_001":7.9254,
+  "DE_FR_002":7.6243,
+  "DE_FR_003":8.1198,
+  "DE_HH_001":7.6305,
+  "DE_HH_002":8.2862,
+  "DE_HH_003":8.9744,
+  "DE_MU_001":8.4115,
+  "DE_MU_002":8.7657,
+  "DE_MU_003":8.5913,
+  "DE_MU_004":8.7653,
+  "DE_MU_005":8.6919,
+  "DE_MU_006":8.7037,
+  "DE_ST_001":8.4443,
+  "DK_CP_001":8.8973,
+  "ES_BC_001":8.3183,
+  "ES_BC_005":8.4901,
+  "ES_BC_006":8.7411,
+  "ES_BC_025":8.6237,
+  "ES_BC_026":9.0394,
+  "ES_GR_001":9.25,
+  "ES_MA_001":8.1403,
+  "ES_MA_003":8.7008,
+  "ES_MA_004":8.9856,
+  "ES_MA_005":9.1434,
+  "ES_MA_006":8.7963,
+  "ES_MA_007":9.1007,
+  "ES_SE_003":9.1388,
+  "ES_SE_004":9.2741,
+  "ES_SE_005":9.0437,
+  "ES_SE_006":9.5455,
+  "ES_SE_007":8.5526,
+  "ES_VA_001":8.9303,
+  "ES_VA_002":9.0056,
+  "FR_PA_001":8.3559,
+  "FR_PA_002":8.8325,
+  "FR_PA_003":8.5624,
+  "FR_PA_005":8.0686,
+  "GB_BR_001":9.026,
+  "GB_GW_001":9.4313,
+  "GB_LD_001":8.1977,
+  "GB_LD_002":8.5049,
+  "GB_LD_003":9.2061,
+  "GB_LD_004":9.1667,
+  "GB_LD_007":8.2432,
+  "GB_LD_008":8.3333,
+  "GB_LD_009":8.5863,
+  "GB_LD_010":8.8281,
+  "GB_LD_012":8.941,
+  "GB_LD_013":8.3333,
+  "GB_LD_014":10,
+  "GB_LD_015":9.1396,
+  "GB_LD_016":8.4267,
+  "GB_LD_019":8.0303,
+  "GB_MA_001":8.9281,
+  "IT_FL_001":8.4642,
+  "IT_FL_002":9.0395,
+  "IT_FL_003":9.2084,
+  "IT_FL_004":8.9506,
+  "IT_FL_005":8.8009,
+  "IT_FL_006":8.9349,
+  "IT_FL_007":8.8502,
+  "IT_FL_008":8.7413,
+  "IT_FL_010":8.2955,
+  "IT_MI_001":9.1148,
+  "IT_MI_002":7.7869,
+  "IT_MI_003":8.4238,
+  "IT_MI_004":9.1535,
+  "IT_MI_008":9.1543,
+  "IT_RM_001":8.3712,
+  "IT_RM_002":8.6339,
+  "IT_RM_003":8.4584,
+  "IT_RM_004":9.2652,
+  "IT_RM_005":8.4664,
+  "IT_RM_006":8.2992,
+  "IT_RM_007":9.344,
+  "IT_VE_001":9.018,
+  "IT_VE_002":8.6116,
+  "NL_AM_001":8.0164,
+  "NL_AM_002":8.4559,
+  "NL_AM_003":8.3175,
+  "NL_AM_004":7.9545,
+  "NL_AM_005":8.2994,
+  "NL_AM_006":8.9273,
+  "NL_AM_007":7.6196,
+  "NL_AM_008":7.6325,
+  "NL_AM_009":8.125,
+  "NL_AM_010":8.0349,
+  "NL_AM_011":8.8679,
+  "NL_AM_012":8.4677,
+  "NL_RO_001":8.9711,
+  "NL_TH_001":8.749,
+  "NL_TH_002":8.3785,
+  "NL_TH_003":8.25,
+  "NO_OS_001":9.017,
+  "NO_OS_002":9.0808,
+  "PT_LI_001":9.12,
+  "PT_LI_002":9.2086
+};
+const CLEAN_YES_AVG = 8.5951, CLEAN_NO_AVG = 8.8052;
+const CLEAN_DELTA = -0.2101, CLEAN_R = -0.2329, CLEAN_R2 = 0.0542;
+const CLEAN_N_YES = 90, CLEAN_N_NO = 46;
+
 /* ═══════════════════════════════════════════════════════════
    DATA  (checker blank → "No", flagged with sheetBlank:true)
 ═══════════════════════════════════════════════════════════ */
@@ -702,6 +885,181 @@ function setFilter(f, btn) {
 }
 
 setFilter('all', document.querySelector('[data-f="all"]'));
+
+/* ── CLEANLINESS DOT PLOT ──────────────────────────────── */
+(function buildCleanDotPlot() {
+  const SMIN=6, SMAX=10.3, TRACK_H=52, DOT=10, BIN=0.13;
+  const pct = s => ((s-SMIN)/(SMAX-SMIN)*100).toFixed(3)+'%';
+  const wrap = document.getElementById('cleandotplot');
+
+  function beeswarm(items) {
+    const buckets = {};
+    items.forEach(d => {
+      const v = CLEAN[d.id];
+      if (v == null) return;
+      const k = (Math.round(v/BIN)*BIN).toFixed(2);
+      if (!buckets[k]) buckets[k]=[];
+      buckets[k].push({...d, clean:v});
+    });
+    const out=[];
+    Object.values(buckets).forEach(group=>{
+      const n=group.length;
+      group.forEach((d,i)=>{
+        const step = Math.min(DOT*1.05, (TRACK_H-DOT*1.4)/(Math.max(n-1,1)));
+        const offset = n===1 ? 0 : (i-(n-1)/2)*step;
+        out.push({...d, dy: offset});
+      });
+    });
+    return out;
+  }
+
+  const groups = [
+    {key:'Yes', label:'✓ Has Checker', n:CLEAN_N_YES, avg_v:CLEAN_YES_AVG, color:GREEN},
+    {key:'No',  label:'✗ No Checker',  n:CLEAN_N_NO,  avg_v:CLEAN_NO_AVG,  color:RED},
+  ];
+
+  groups.forEach(grp => {
+    const items = DATA.filter(d=>d.checker===grp.key && CLEAN[d.id]!=null);
+    const placed = beeswarm(items);
+
+    const row = document.createElement('div');
+    row.className = 'dp-row';
+
+    const lbl = document.createElement('div');
+    lbl.className = 'dp-label';
+    lbl.style.color = grp.color;
+    lbl.innerHTML = `${grp.label}<small>avg ${grp.avg_v.toFixed(2)} · n=${grp.n}</small>`;
+    row.appendChild(lbl);
+
+    const track = document.createElement('div');
+    track.className = 'dp-track';
+    track.style.height = TRACK_H + 'px';
+
+    for (let s=6; s<=10; s+=0.5) {
+      const gl = document.createElement('div');
+      gl.className = 'dp-gridline';
+      gl.style.left = pct(s);
+      track.appendChild(gl);
+    }
+
+    const al = document.createElement('div');
+    al.className = 'dp-avg';
+    al.style.cssText = `left:${pct(grp.avg_v)};background:${grp.color};top:3px;bottom:3px;`;
+    track.appendChild(al);
+    const alb = document.createElement('div');
+    alb.className = 'dp-avg-label';
+    alb.style.cssText = `left:calc(${pct(grp.avg_v)} + 4px);top:2px;color:${grp.color};`;
+    alb.textContent = grp.avg_v.toFixed(2);
+    track.appendChild(alb);
+
+    placed.forEach(p => {
+      const dot = document.createElement('div');
+      dot.className = 'dot';
+      dot.style.background = grp.color;
+      dot.style.left = pct(p.clean);
+      dot.style.top  = `calc(50% + ${p.dy}px)`;
+      if (p.sheetBlank) {
+        dot.style.opacity = '0.55';
+        dot.style.border  = '1.5px dashed rgba(255,255,255,.8)';
+      }
+      dot.addEventListener('mouseenter', e => {
+        const note = p.sheetBlank ? '<br><small>* ops sheet blank</small>' : '';
+        tt.innerHTML = `<b>${p.name}</b><br>${p.city}, ${p.country}<br>Cleanliness: <b style="color:${grp.color}">${p.clean.toFixed(2)}</b><br>Overall B.com: <b>${p.bcom!=null?p.bcom.toFixed(2):'—'}</b><br><small>${p.id}</small>${note}`;
+        tt.style.display = 'block';
+        moveTT(e);
+      });
+      dot.addEventListener('mousemove',  e => moveTT(e));
+      dot.addEventListener('mouseleave', hideTT);
+      track.appendChild(dot);
+    });
+
+    row.appendChild(track);
+    wrap.appendChild(row);
+  });
+
+  // Axis
+  const axis = document.createElement('div');
+  axis.className = 'dp-axis';
+  axis.style.height = '18px';
+  for (let s=6; s<=10; s+=0.5) {
+    const t = document.createElement('span');
+    t.className = 'dp-tick';
+    t.style.left = pct(s);
+    t.textContent = Number.isInteger(s) ? s.toFixed(0) : s.toFixed(1);
+    axis.appendChild(t);
+  }
+  wrap.appendChild(axis);
+
+  const leg = document.getElementById('clean-dp-legend');
+  [{color:GREEN, label:'Has checker'},{color:RED, label:'No checker'}].forEach(({color,label}) => {
+    const item = document.createElement('div');
+    item.className = 'dp-legend-item';
+    const dot = document.createElement('div');
+    dot.className = 'dp-legend-dot';
+    dot.style.background = color;
+    item.appendChild(dot);
+    item.appendChild(document.createTextNode(label));
+    leg.appendChild(item);
+  });
+})();
+
+/* ── CLEANLINESS COUNTRY CHART ────────────────────────── */
+(function buildCleanCountryChart() {
+  const by={};
+  DATA.forEach(d=>{
+    const v = CLEAN[d.id];
+    if (v == null) return;
+    if(!by[d.country]) by[d.country]={Yes:[],No:[]};
+    by[d.country][d.checker==='Yes'?'Yes':'No'].push(v);
+  });
+
+  const countries = Object.keys(by).sort((a,b)=>{
+    const ga=[...by[a].Yes,...by[a].No], gb=[...by[b].Yes,...by[b].No];
+    return avg(gb)-avg(ga);
+  });
+
+  const yesData = countries.map(c=>by[c].Yes.length ? +avg(by[c].Yes).toFixed(2) : null);
+  const noData  = countries.map(c=>by[c].No.length  ? +avg(by[c].No).toFixed(2)  : null);
+  const yesN    = countries.map(c=>by[c].Yes.length);
+  const noN     = countries.map(c=>by[c].No.length);
+
+  new Chart(document.getElementById('cleanCountryChart').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: countries,
+      datasets: [
+        { label:'✓ Has Checker', data:yesData, backgroundColor:'rgba(30,158,88,.78)',
+          borderColor:GREEN, borderWidth:1.5, borderRadius:4 },
+        { label:'✗ No Checker',  data:noData,  backgroundColor:'rgba(214,59,59,.78)',
+          borderColor:RED,   borderWidth:1.5, borderRadius:4 },
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins: {
+        legend: { position:'top', labels:{ font:{size:12}, padding:16 } },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              if (ctx.parsed.y==null) return null;
+              const n = ctx.datasetIndex===0 ? yesN[ctx.dataIndex] : noN[ctx.dataIndex];
+              return ` ${ctx.parsed.y.toFixed(2)}  (n=${n})`;
+            }
+          }
+        }
+      },
+      scales: {
+        y: {
+          min:6.8, max:10.2,
+          title:{ display:true, text:'Avg Cleanliness Score', font:{size:11} },
+          ticks:{ font:{size:11}, callback:v=>v.toFixed(1) },
+          grid: { color:'rgba(0,0,0,.06)' }
+        },
+        x: { ticks:{ font:{size:11} }, grid:{ display:false } }
+      }
+    }
+  });
+})();
 </script>
 </body>
 </html>
